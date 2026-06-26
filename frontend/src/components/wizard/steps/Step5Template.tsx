@@ -1,4 +1,7 @@
+import { useMemo } from 'react'
+import { CheckCircle2, XCircle, ShieldCheck } from 'lucide-react'
 import type { CVData, CVTheme, OutputFormat } from '../../../types/cv'
+import { calculateATS } from '../../../utils/ats'
 
 interface Props {
   data: CVData
@@ -13,59 +16,100 @@ const THEMES: {
   id: CVTheme
   name: string
   description: string
-  accentBg: string
-  accentText: string
-  preview: { heading: string; subtext: string }[]
+  accent: string
+  preview: string
 }[] = [
   {
     id: 'classic',
     name: 'Classic',
     description: 'Diseño tradicional y elegante. Funciona para cualquier industria.',
-    accentBg: 'bg-slate-800',
-    accentText: 'text-white',
-    preview: [
-      { heading: '█████████████', subtext: '██████ · ██████' },
-      { heading: '██████', subtext: '████████████████████' },
-      { heading: '██████', subtext: '████████████' },
-    ],
+    accent: '#18181b',
+    preview: 'bg-zinc-800',
   },
   {
     id: 'sb2nov',
     name: 'SB2Nov',
     description: 'Moderno, minimalista. Muy valorado en tecnología y startups.',
-    accentBg: 'bg-blue-700',
-    accentText: 'text-white',
-    preview: [
-      { heading: '█████████████', subtext: '██████ · ██████' },
-      { heading: '██████', subtext: '████████████████████' },
-      { heading: '██████', subtext: '████████████' },
-    ],
+    accent: '#1d4ed8',
+    preview: 'bg-blue-700',
   },
   {
     id: 'engineeringresumes',
     name: 'Engineering',
     description: 'Optimizado para ingeniería de software y ciencias de la computación.',
-    accentBg: 'bg-emerald-700',
-    accentText: 'text-white',
-    preview: [
-      { heading: '█████████████', subtext: '██████ · ██████' },
-      { heading: '██████', subtext: '████████████████████' },
-      { heading: '██████', subtext: '████████████' },
-    ],
+    accent: '#047857',
+    preview: 'bg-emerald-700',
   },
   {
     id: 'moderncv',
     name: 'ModernCV',
     description: 'Colorido y diferenciado. Ideal para creativos y diseñadores.',
-    accentBg: 'bg-violet-700',
-    accentText: 'text-white',
-    preview: [
-      { heading: '█████████████', subtext: '██████ · ██████' },
-      { heading: '██████', subtext: '████████████████████' },
-      { heading: '██████', subtext: '████████████' },
-    ],
+    accent: '#6d28d9',
+    preview: 'bg-violet-700',
   },
 ]
+
+function ATSPanel({ data }: { data: CVData }) {
+  const result = useMemo(() => calculateATS(data), [data])
+
+  const circumference = 2 * Math.PI * 28
+  const dashOffset = circumference - (result.score / 100) * circumference
+
+  const gradeLabel = result.grade === 'A'
+    ? 'Excelente' : result.grade === 'B'
+    ? 'Bueno' : result.grade === 'C'
+    ? 'Mejorable' : 'Incompleto'
+
+  return (
+    <div className="rounded-xl border border-zinc-200 overflow-hidden">
+      <div className="flex items-center gap-4 px-5 py-4 bg-zinc-50 border-b border-zinc-200">
+        <ShieldCheck className="w-5 h-5 text-zinc-600 flex-shrink-0" />
+        <div className="flex-1">
+          <p className="text-sm font-bold text-zinc-800">Puntuación ATS</p>
+          <p className="text-xs text-zinc-500">Compatibilidad con sistemas de rastreo de candidatos</p>
+        </div>
+        <div className="flex items-center gap-3 flex-shrink-0">
+          <svg width="72" height="72" viewBox="0 0 72 72" className="-rotate-90">
+            <circle cx="36" cy="36" r="28" fill="none" stroke="#e4e4e7" strokeWidth="6" />
+            <circle
+              cx="36" cy="36" r="28" fill="none"
+              stroke={result.color}
+              strokeWidth="6"
+              strokeLinecap="round"
+              strokeDasharray={circumference}
+              strokeDashoffset={dashOffset}
+              style={{ transition: 'stroke-dashoffset 0.8s ease' }}
+            />
+          </svg>
+          <div className="text-center -ml-1">
+            <p className="text-2xl font-extrabold" style={{ color: result.color }}>{result.score}</p>
+            <p className="text-xs font-bold" style={{ color: result.color }}>{gradeLabel}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="px-5 py-4 space-y-2.5">
+        {result.checks.map(check => (
+          <div key={check.label} className="flex items-start gap-3">
+            {check.passed
+              ? <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
+              : <XCircle className="w-4 h-4 text-zinc-200 flex-shrink-0 mt-0.5" />
+            }
+            <div className="flex-1 min-w-0">
+              <p className={`text-xs font-semibold ${check.passed ? 'text-zinc-700' : 'text-zinc-400'}`}>
+                {check.label}
+                <span className="ml-1.5 font-normal text-zinc-400">+{check.weight}pts</span>
+              </p>
+              {!check.passed && (
+                <p className="text-xs text-zinc-400 mt-0.5 leading-snug">{check.tip}</p>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 export default function Step5Template({ data, setData, onPrev, onGenerate, isGenerating, downloadUrl }: Props) {
   const { theme, format } = data.template
@@ -80,14 +124,14 @@ export default function Step5Template({ data, setData, onPrev, onGenerate, isGen
     <div>
       <div className="px-8 pt-8 pb-2">
         <div className="flex items-center gap-3 mb-1">
-          <div className="w-8 h-8 rounded-lg bg-rose-100 flex items-center justify-center">
-            <svg className="w-4 h-4 text-rose-600" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+          <div className="w-8 h-8 rounded-lg bg-zinc-100 flex items-center justify-center">
+            <svg className="w-4 h-4 text-zinc-600" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M9.53 16.122a3 3 0 00-5.78 1.128 2.25 2.25 0 01-2.4 2.245 4.5 4.5 0 008.4-2.245c0-.399-.078-.78-.22-1.128zm0 0a15.998 15.998 0 003.388-1.62m-5.043-.025a15.994 15.994 0 011.622-3.395m3.42 3.42a15.995 15.995 0 004.764-4.648l3.876-5.814a1.151 1.151 0 00-1.597-1.597L14.146 6.32a15.996 15.996 0 00-4.649 4.763m3.42 3.42a6.776 6.776 0 00-3.42-3.42" />
             </svg>
           </div>
-          <h2 className="text-2xl font-bold text-slate-900">Plantilla & Formato</h2>
+          <h2 className="text-2xl font-bold text-zinc-900">Plantilla & Formato</h2>
         </div>
-        <p className="text-slate-500 text-sm mb-6 ml-11">
+        <p className="text-zinc-500 text-sm mb-6 ml-11">
           Elige el diseño visual y el formato de descarga de tu CV.
         </p>
       </div>
@@ -95,7 +139,7 @@ export default function Step5Template({ data, setData, onPrev, onGenerate, isGen
       <div className="px-8 pb-6 space-y-8">
         {/* Theme grid */}
         <div>
-          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">
+          <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-4">
             Diseño de plantilla
           </h3>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -107,16 +151,16 @@ export default function Step5Template({ data, setData, onPrev, onGenerate, isGen
                   onClick={() => setTheme(t.id)}
                   className={`
                     group flex flex-col rounded-2xl overflow-hidden border-2 text-left
-                    transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500
+                    transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900
                     ${selected
-                      ? 'border-indigo-500 shadow-lg shadow-indigo-100/80 scale-[1.02]'
-                      : 'border-slate-200 hover:border-indigo-300 hover:shadow-md hover:shadow-slate-100'
+                      ? 'border-zinc-900 shadow-md scale-[1.02]'
+                      : 'border-zinc-200 hover:border-zinc-400 hover:shadow-sm'
                     }
                   `}
                 >
-                  {/* Mock CV preview */}
-                  <div className={`${t.accentBg} p-4 h-28 relative overflow-hidden flex-shrink-0`}>
-                    <div className={`${t.accentText} opacity-90 space-y-2`}>
+                  {/* Preview area */}
+                  <div className={`${t.preview} p-4 h-28 relative overflow-hidden flex-shrink-0`}>
+                    <div className="space-y-2">
                       <div className="h-2 w-3/4 bg-white/50 rounded-full" />
                       <div className="h-1.5 w-1/2 bg-white/30 rounded-full" />
                     </div>
@@ -127,17 +171,17 @@ export default function Step5Template({ data, setData, onPrev, onGenerate, isGen
                     </div>
                     {selected && (
                       <div className="absolute top-2 right-2 w-6 h-6 bg-white rounded-full flex items-center justify-center shadow-sm">
-                        <svg className="w-3.5 h-3.5 text-indigo-600" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                        <svg className="w-3.5 h-3.5 text-zinc-900" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                         </svg>
                       </div>
                     )}
                   </div>
                   <div className="p-3 bg-white flex-1">
-                    <p className={`text-sm font-bold ${selected ? 'text-indigo-700' : 'text-slate-800'}`}>
+                    <p className={`text-sm font-bold ${selected ? 'text-zinc-900' : 'text-zinc-700'}`}>
                       {t.name}
                     </p>
-                    <p className="text-xs text-slate-500 mt-0.5 leading-snug">{t.description}</p>
+                    <p className="text-xs text-zinc-500 mt-0.5 leading-snug">{t.description}</p>
                   </div>
                 </button>
               )
@@ -147,7 +191,7 @@ export default function Step5Template({ data, setData, onPrev, onGenerate, isGen
 
         {/* Format picker */}
         <div>
-          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">
+          <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-4">
             Formato de entrega
           </h3>
           <div className="grid grid-cols-2 gap-4">
@@ -182,18 +226,18 @@ export default function Step5Template({ data, setData, onPrev, onGenerate, isGen
                     flex items-center gap-4 px-5 py-4 rounded-xl border-2 text-left
                     transition-all duration-200
                     ${sel
-                      ? 'border-indigo-500 bg-indigo-50/60 text-indigo-700'
-                      : 'border-slate-200 text-slate-600 hover:border-indigo-200 hover:bg-slate-50'
+                      ? 'border-zinc-900 bg-zinc-50 text-zinc-900'
+                      : 'border-zinc-200 text-zinc-600 hover:border-zinc-400 hover:bg-zinc-50'
                     }
                   `}
                 >
-                  <span className={sel ? 'text-indigo-600' : 'text-slate-400'}>{f.icon}</span>
+                  <span className={sel ? 'text-zinc-900' : 'text-zinc-400'}>{f.icon}</span>
                   <div>
                     <p className="font-bold text-sm">{f.label}</p>
                     <p className="text-xs opacity-70 mt-0.5">{f.sub}</p>
                   </div>
                   {sel && (
-                    <div className="ml-auto w-5 h-5 rounded-full bg-indigo-600 flex items-center justify-center">
+                    <div className="ml-auto w-5 h-5 rounded-full bg-zinc-900 flex items-center justify-center">
                       <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                       </svg>
@@ -205,34 +249,17 @@ export default function Step5Template({ data, setData, onPrev, onGenerate, isGen
           </div>
         </div>
 
-        {/* CV Summary card */}
-        <div className="p-5 bg-slate-50 rounded-xl border border-slate-200">
-          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Resumen del CV</h3>
-          <dl className="grid grid-cols-2 gap-x-8 gap-y-2.5 text-sm">
-            {[
-              ['Nombre', data.personal.name || '—'],
-              ['Email', data.personal.email || '—'],
-              ['Experiencias', String(data.experience.length)],
-              ['Formaciones', String(data.education.length)],
-              ['Grupos de habilidades', String(data.skills.length)],
-              ['Plantilla', THEMES.find(t => t.id === theme)?.name ?? theme],
-            ].map(([key, val]) => (
-              <div key={key} className="contents">
-                <dt className="text-slate-500">{key}:</dt>
-                <dd className="text-slate-900 font-semibold truncate">{val}</dd>
-              </div>
-            ))}
-          </dl>
-        </div>
+        {/* ATS Score panel */}
+        <ATSPanel data={data} />
       </div>
 
       {/* Footer actions */}
-      <div className="flex items-center justify-between px-8 py-5 border-t border-slate-100">
+      <div className="flex items-center justify-between px-8 py-5 border-t border-zinc-100">
         <button
           onClick={onPrev}
           className="
-            inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold
-            text-slate-600 bg-slate-100 hover:bg-slate-200 transition-all duration-200
+            inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold
+            text-zinc-600 bg-zinc-100 hover:bg-zinc-200 active:scale-95 transition-all duration-200
           "
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
@@ -247,9 +274,9 @@ export default function Step5Template({ data, setData, onPrev, onGenerate, isGen
               href={downloadUrl}
               download={`cv.${format}`}
               className="
-                inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold
+                inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold
                 text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100
-                transition-all duration-200
+                active:scale-95 transition-all duration-200
               "
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
@@ -263,10 +290,10 @@ export default function Step5Template({ data, setData, onPrev, onGenerate, isGen
             onClick={onGenerate}
             disabled={isGenerating}
             className="
-              inline-flex items-center gap-2 px-7 py-2.5 rounded-xl text-sm font-semibold
-              text-white bg-indigo-600 hover:bg-indigo-700 active:scale-95
-              disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100
-              transition-all duration-200 shadow-md shadow-indigo-200/70
+              inline-flex items-center gap-2 px-7 py-2.5 rounded-full text-sm font-semibold
+              text-white bg-zinc-900 hover:bg-zinc-700 active:scale-95
+              disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100
+              transition-all duration-200
             "
           >
             {isGenerating ? (

@@ -114,7 +114,7 @@ export default function App() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
         >
-          <WizardLayout step={step} steps={STEPS}>
+          <WizardLayout step={step} steps={STEPS} onBack={() => setStarted(false)}>
             {/* Error banner */}
             {error && (
               <div className="mx-8 mt-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
