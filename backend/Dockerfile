@@ -1,12 +1,8 @@
 FROM python:3.12-slim
 
-# Instalar dependencias del sistema (Poppler y LaTeX)
+# Instalar dependencias del sistema (Poppler, para convertir PDF a PNG)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     poppler-utils \
-    texlive-latex-extra \
-    texlive-fonts-recommended \
-    texlive-plain-generic \
-    latexmk \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
