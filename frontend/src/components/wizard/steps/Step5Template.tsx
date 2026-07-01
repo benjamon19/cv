@@ -1,7 +1,8 @@
-import { useMemo } from 'react'
-import { CheckCircle2, XCircle, ShieldCheck } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { CheckCircle2, XCircle, ShieldCheck, Eye } from 'lucide-react'
 import type { CVData, CVTheme, OutputFormat } from '../../../types/cv'
 import { calculateATS } from '../../../utils/ats'
+import { getLoadingState } from '../../../utils/loadingMessages'
 
 interface Props {
   data: CVData
@@ -10,6 +11,7 @@ interface Props {
   onGenerate: () => void
   isGenerating: boolean
   downloadUrl: string | null
+  onShowPreview: () => void
 }
 
 const THEMES: {
@@ -29,14 +31,14 @@ const THEMES: {
   {
     id: 'sb2nov',
     name: 'SB2Nov',
-    description: 'Moderno, minimalista. Muy valorado en tecnología y startups.',
+    description: 'Moderno, minimalista y directo. Un diseño limpio para cualquier rubro.',
     accent: '#1d4ed8',
     preview: 'bg-blue-700',
   },
   {
     id: 'engineeringresumes',
-    name: 'Engineering',
-    description: 'Optimizado para ingeniería de software y ciencias de la computación.',
+    name: 'Compacto',
+    description: 'Diseño compacto y estructurado, ideal si tienes mucha experiencia y formación para detallar.',
     accent: '#047857',
     preview: 'bg-emerald-700',
   },
@@ -111,8 +113,21 @@ function ATSPanel({ data }: { data: CVData }) {
   )
 }
 
-export default function Step5Template({ data, setData, onPrev, onGenerate, isGenerating, downloadUrl }: Props) {
+export default function Step5Template({ data, setData, onPrev, onGenerate, isGenerating, downloadUrl, onShowPreview }: Props) {
   const { theme, format } = data.template
+  const [elapsedMs, setElapsedMs] = useState(0)
+
+  useEffect(() => {
+    if (!isGenerating) {
+      setElapsedMs(0)
+      return
+    }
+    const start = Date.now()
+    const id = setInterval(() => setElapsedMs(Date.now() - start), 250)
+    return () => clearInterval(id)
+  }, [isGenerating])
+
+  const { message: loadingMessage, progress: loadingProgress } = getLoadingState(elapsedMs)
 
   const setTheme = (t: CVTheme) =>
     setData({ ...data, template: { ...data.template, theme: t } })
@@ -261,6 +276,22 @@ export default function Step5Template({ data, setData, onPrev, onGenerate, isGen
 
         {/* ATS Score panel */}
         <ATSPanel data={data} />
+
+        {/* Generation progress — el backend (Render free) puede tardar en despertar */}
+        {isGenerating && (
+          <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
+            <div className="flex items-center justify-between gap-4 mb-2">
+              <p className="text-sm font-medium text-zinc-700">{loadingMessage}</p>
+              <span className="text-xs text-zinc-400 tabular-nums flex-shrink-0">{Math.round(loadingProgress)}%</span>
+            </div>
+            <div className="h-1.5 bg-zinc-200 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-zinc-900 rounded-full transition-all duration-500 ease-out"
+                style={{ width: `${loadingProgress}%` }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Footer actions */}
@@ -279,6 +310,20 @@ export default function Step5Template({ data, setData, onPrev, onGenerate, isGen
         </button>
 
         <div className="flex items-center gap-3">
+          {downloadUrl && !isGenerating && (
+            <button
+              onClick={onShowPreview}
+              className="
+                inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold
+                text-zinc-600 bg-zinc-100 hover:bg-zinc-200
+                active:scale-95 transition-all duration-200
+              "
+            >
+              <Eye className="w-4 h-4" />
+              Ver vista previa
+            </button>
+          )}
+
           {downloadUrl && (
             <a
               href={downloadUrl}
@@ -312,7 +357,7 @@ export default function Step5Template({ data, setData, onPrev, onGenerate, isGen
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
-                Generando CV...
+                Generando...
               </>
             ) : (
               <>

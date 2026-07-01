@@ -1,36 +1,53 @@
-import { useMemo } from 'react'
-import type { CVData, SkillGroup, ProfileType } from '../../../types/cv'
+import { useMemo, useState } from 'react'
+import { AlertCircle } from 'lucide-react'
+import type { CVData, SkillGroup } from '../../../types/cv'
 import NavigationButtons from '../NavigationButtons'
 import Combobox from '../../ui/Combobox'
-import { SKILLS_BY_CATEGORY } from '../../../data/suggestions'
+import {
+  SKILLS_BY_CATEGORY, SUGGESTED_SKILL_CATEGORIES,
+  SKILL_CATEGORY_PLACEHOLDER_EXAMPLES, SKILL_DETAILS_PLACEHOLDER_EXAMPLES, pickRandom,
+} from '../../../data/suggestions'
+import { validateRequired } from '../../../utils/validation'
 
 interface Props {
   data: CVData
   setData: (d: CVData) => void
   onNext: () => void
   onPrev: () => void
-  profileType: ProfileType
 }
 
 const CATEGORY_NAMES = Object.keys(SKILLS_BY_CATEGORY)
 
-const SUGGESTED_CATEGORIES_DEVELOPER = [
-  'Lenguajes', 'Frameworks & Librerías', 'Bases de Datos',
-  'DevOps & Cloud', 'Herramientas', 'Idiomas', 'Metodologías', 'Soft Skills',
-]
+interface SkillGroupErrors {
+  label: string | null
+  details: string | null
+}
 
-const SUGGESTED_CATEGORIES_OTHER = [
-  'Diseño', 'Marketing', 'Idiomas', 'Metodologías', 'Soft Skills',
-]
+type SkillField = 'label' | 'details'
+
+function validateSkillGroup(skill: SkillGroup): SkillGroupErrors {
+  return {
+    label: validateRequired(skill.label, 'La categoría'),
+    details: validateRequired(skill.details, 'Al menos una habilidad'),
+  }
+}
 
 function SkillCard({
-  skill, index, onUpdate, onRemove,
+  skill, index, onUpdate, onRemove, errors, forceShowErrors,
 }: {
   skill: SkillGroup
   index: number
   onUpdate: (i: number, field: keyof SkillGroup, value: string) => void
   onRemove: (i: number) => void
+  errors: SkillGroupErrors
+  forceShowErrors: boolean
 }) {
+  const [touched, setTouched] = useState<Partial<Record<SkillField, boolean>>>({})
+  const markTouched = (field: SkillField) => setTouched(t => ({ ...t, [field]: true }))
+  const shownError = (field: SkillField) => (touched[field] || forceShowErrors) ? errors[field] : null
+  const [categoryPlaceholder] = useState(() => pickRandom(SKILL_CATEGORY_PLACEHOLDER_EXAMPLES))
+  const [detailsPlaceholder] = useState(() => pickRandom(SKILL_DETAILS_PLACEHOLDER_EXAMPLES))
+
   const suggestedSkills: string[] = useMemo(
     () => SKILLS_BY_CATEGORY[skill.label] ?? [],
     [skill.label]
@@ -57,8 +74,10 @@ function SkillCard({
             label="Categoría"
             value={skill.label}
             onChange={v => onUpdate(index, 'label', v)}
+            onBlur={() => markTouched('label')}
+            error={shownError('label')}
             suggestions={CATEGORY_NAMES}
-            placeholder="Lenguajes"
+            placeholder={categoryPlaceholder}
             className="sm:col-span-1"
           />
           <div className="sm:col-span-2">
@@ -69,14 +88,21 @@ function SkillCard({
             <input
               value={skill.details}
               onChange={e => onUpdate(index, 'details', e.target.value)}
-              placeholder="Python, TypeScript, Go..."
-              className="
-                w-full px-3.5 py-2 rounded-lg border border-zinc-200 bg-white text-zinc-900
+              onBlur={() => markTouched('details')}
+              placeholder={detailsPlaceholder}
+              aria-invalid={!!shownError('details')}
+              className={`
+                w-full px-3.5 py-2 rounded-lg border bg-white text-zinc-900
                 placeholder-zinc-300 text-sm
-                focus:outline-none focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/10
+                focus:outline-none focus:ring-2
                 transition-all duration-150
-              "
+                ${shownError('details')
+                  ? 'border-red-300 focus:border-red-500 focus:ring-red-500/10'
+                  : 'border-zinc-200 focus:border-zinc-900 focus:ring-zinc-900/10'
+                }
+              `}
             />
+            {shownError('details') && <p className="mt-1 text-xs text-red-500">{shownError('details')}</p>}
           </div>
         </div>
         <button
@@ -132,10 +158,10 @@ function SkillCard({
   )
 }
 
-export default function Step4Skills({ data, setData, onNext, onPrev, profileType }: Props) {
-  const SUGGESTED_CATEGORIES = profileType === 'developer'
-    ? SUGGESTED_CATEGORIES_DEVELOPER
-    : SUGGESTED_CATEGORIES_OTHER
+export default function Step4Skills({ data, setData, onNext, onPrev }: Props) {
+  const [submitAttempted, setSubmitAttempted] = useState(false)
+
+  const SUGGESTED_CATEGORIES = SUGGESTED_SKILL_CATEGORIES
 
   const addGroup = (label = '') =>
     setData({ ...data, skills: [...data.skills, { label, details: '' }] })
@@ -149,6 +175,19 @@ export default function Step4Skills({ data, setData, onNext, onPrev, profileType
     setData({ ...data, skills: data.skills.filter((_, idx) => idx !== i) })
 
   const existingLabels = new Set(data.skills.map(s => s.label))
+
+  const skillErrors = useMemo(() => data.skills.map(validateSkillGroup), [data.skills])
+  const groupsHaveErrors = skillErrors.some(e => Object.values(e).some(Boolean))
+  const noGroups = data.skills.length === 0
+  const showNoGroupsError = submitAttempted && noGroups
+
+  const handleNext = () => {
+    if (noGroups || groupsHaveErrors) {
+      setSubmitAttempted(true)
+      return
+    }
+    onNext()
+  }
 
   return (
     <div>
@@ -177,8 +216,23 @@ export default function Step4Skills({ data, setData, onNext, onPrev, profileType
         )}
 
         {data.skills.map((skill, i) => (
-          <SkillCard key={i} skill={skill} index={i} onUpdate={update} onRemove={remove} />
+          <SkillCard
+            key={i}
+            skill={skill}
+            index={i}
+            onUpdate={update}
+            onRemove={remove}
+            errors={skillErrors[i]}
+            forceShowErrors={submitAttempted}
+          />
         ))}
+
+        {showNoGroupsError && (
+          <div className="flex items-center gap-2 text-xs text-red-500 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+            <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+            Agrega al menos un grupo de habilidades antes de continuar.
+          </div>
+        )}
 
         <button
           onClick={() => addGroup()}
@@ -205,7 +259,7 @@ export default function Step4Skills({ data, setData, onNext, onPrev, profileType
         )}
       </div>
 
-      <NavigationButtons onPrev={onPrev} onNext={onNext} />
+      <NavigationButtons onPrev={onPrev} onNext={handleNext} />
     </div>
   )
 }

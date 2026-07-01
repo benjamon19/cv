@@ -1,27 +1,30 @@
-import type { CVData, ProfileType } from '../../../types/cv'
+import { useMemo, useState } from 'react'
+import type { CVData } from '../../../types/cv'
 import PhoneInput from '../../ui/PhoneInput'
 import LocationInput from '../../ui/LocationInput'
 import NavigationButtons from '../NavigationButtons'
+import { validateRequired, validateEmail, validatePhone, validateUrl } from '../../../utils/validation'
 
 interface Props {
   data: CVData
   setData: (d: CVData) => void
   onNext: () => void
-  profileType: ProfileType
 }
 
 interface FieldProps {
   label: string
   value: string
   onChange: (v: string) => void
+  onBlur?: () => void
   placeholder?: string
   type?: string
   className?: string
   hint?: string
   required?: boolean
+  error?: string | null
 }
 
-function Field({ label, value, onChange, placeholder, type = 'text', className = '', hint, required }: FieldProps) {
+function Field({ label, value, onChange, onBlur, placeholder, type = 'text', className = '', hint, required, error }: FieldProps) {
   return (
     <div className={className}>
       <label className="block text-sm font-medium text-zinc-700 mb-1.5">
@@ -32,25 +35,60 @@ function Field({ label, value, onChange, placeholder, type = 'text', className =
         type={type}
         value={value}
         onChange={e => onChange(e.target.value)}
+        onBlur={onBlur}
         placeholder={placeholder}
-        className="
-          w-full px-4 py-2.5 rounded-xl border border-zinc-200 bg-white text-zinc-900
+        aria-invalid={!!error}
+        className={`
+          w-full px-4 py-2.5 rounded-xl border bg-white text-zinc-900
           placeholder-zinc-400 text-sm
-          focus:outline-none focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/10
+          focus:outline-none focus:ring-2
           transition-all duration-200
-        "
+          ${error
+            ? 'border-red-300 focus:border-red-500 focus:ring-red-500/10'
+            : 'border-zinc-200 focus:border-zinc-900 focus:ring-zinc-900/10'
+          }
+        `}
       />
-      {hint && <p className="mt-1 text-xs text-zinc-400">{hint}</p>}
+      {error ? (
+        <p className="mt-1 text-xs text-red-500">{error}</p>
+      ) : hint ? (
+        <p className="mt-1 text-xs text-zinc-400">{hint}</p>
+      ) : null}
     </div>
   )
 }
 
-export default function Step1Personal({ data, setData, onNext, profileType }: Props) {
+type FieldName = 'name' | 'email' | 'phone' | 'location' | 'website' | 'linkedin' | 'github'
+
+export default function Step1Personal({ data, setData, onNext }: Props) {
   const p = data.personal
+  const [touched, setTouched] = useState<Partial<Record<FieldName, boolean>>>({})
+  const [submitAttempted, setSubmitAttempted] = useState(false)
+
   const update = (field: keyof typeof p, value: string) =>
     setData({ ...data, personal: { ...p, [field]: value } })
 
-  const canProceed = p.name.trim() !== '' && p.email.trim() !== '' && p.phone.trim() !== '' && p.location.trim() !== ''
+  const markTouched = (field: FieldName) => setTouched(t => ({ ...t, [field]: true }))
+
+  const errors = useMemo(() => ({
+    name: validateRequired(p.name, 'El nombre'),
+    email: validateEmail(p.email),
+    phone: validatePhone(p.phone),
+    location: validateRequired(p.location, 'La ubicación'),
+    website: validateUrl(p.website, 'El sitio web'),
+    linkedin: validateUrl(p.linkedin, 'El enlace de LinkedIn'),
+    github: validateUrl(p.github, 'El enlace de GitHub'),
+  }), [p])
+
+  const shownError = (field: FieldName) => (touched[field] || submitAttempted) ? errors[field] : null
+
+  const handleNext = () => {
+    if (Object.values(errors).some(Boolean)) {
+      setSubmitAttempted(true)
+      return
+    }
+    onNext()
+  }
 
   return (
     <div>
@@ -74,6 +112,8 @@ export default function Step1Personal({ data, setData, onNext, profileType }: Pr
           label="Nombre completo"
           value={p.name}
           onChange={v => update('name', v)}
+          onBlur={() => markTouched('name')}
+          error={shownError('name')}
           placeholder="Ana García López"
           className="sm:col-span-2"
           required
@@ -83,6 +123,8 @@ export default function Step1Personal({ data, setData, onNext, profileType }: Pr
           type="email"
           value={p.email}
           onChange={v => update('email', v)}
+          onBlur={() => markTouched('email')}
+          error={shownError('email')}
           placeholder="ana@ejemplo.com"
           hint="Usa un email profesional, sin apodos."
           required
@@ -91,6 +133,8 @@ export default function Step1Personal({ data, setData, onNext, profileType }: Pr
           label="Teléfono"
           value={p.phone}
           onChange={v => update('phone', v)}
+          onBlur={() => markTouched('phone')}
+          error={shownError('phone')}
           hint="Elige tu país para el prefijo."
           required
         />
@@ -99,6 +143,8 @@ export default function Step1Personal({ data, setData, onNext, profileType }: Pr
           label="Ubicación"
           value={p.location}
           onChange={v => update('location', v)}
+          onBlur={() => markTouched('location')}
+          error={shownError('location')}
           className="sm:col-span-2"
           required
         />
@@ -107,29 +153,32 @@ export default function Step1Personal({ data, setData, onNext, profileType }: Pr
           label="Sitio web / Portfolio"
           value={p.website}
           onChange={v => update('website', v)}
-          placeholder="https://ana.dev"
+          onBlur={() => markTouched('website')}
+          error={shownError('website')}
+          placeholder="https://tuweb.com"
           hint="Opcional — aumenta credibilidad."
         />
         <Field
           label="LinkedIn"
           value={p.linkedin}
           onChange={v => update('linkedin', v)}
-          placeholder="linkedin.com/in/anagarcia"
+          onBlur={() => markTouched('linkedin')}
+          error={shownError('linkedin')}
+          placeholder="linkedin.com/in/tunombre"
           hint="Muy valorado por reclutadores y ATS."
-          className={profileType === 'developer' ? '' : 'sm:col-span-2'}
         />
-        {profileType === 'developer' && (
-          <Field
-            label="GitHub"
-            value={p.github}
-            onChange={v => update('github', v)}
-            placeholder="github.com/anagarcia"
-            hint="Recomendado para perfiles técnicos."
-          />
-        )}
+        <Field
+          label="GitHub"
+          value={p.github}
+          onChange={v => update('github', v)}
+          onBlur={() => markTouched('github')}
+          error={shownError('github')}
+          placeholder="github.com/tunombre"
+          hint="Opcional — si tienes un perfil o portafolio online."
+        />
       </div>
 
-      <NavigationButtons onNext={onNext} nextDisabled={!canProceed} />
+      <NavigationButtons onNext={handleNext} />
     </div>
   )
 }

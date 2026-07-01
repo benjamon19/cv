@@ -5,15 +5,17 @@ interface Props {
   label: string
   value: string
   onChange: (v: string) => void
+  onBlur?: () => void
   suggestions: string[]
   placeholder?: string
   className?: string
   hint?: string
   required?: boolean
+  error?: string | null
 }
 
 export default function Combobox({
-  label, value, onChange, suggestions, placeholder, className = '', hint, required,
+  label, value, onChange, onBlur, suggestions, placeholder, className = '', hint, required, error,
 }: Props) {
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -59,13 +61,19 @@ export default function Combobox({
           value={value}
           onChange={e => { onChange(e.target.value); setOpen(true) }}
           onFocus={() => setOpen(true)}
+          onBlur={onBlur}
           placeholder={placeholder}
-          className="
-            w-full px-4 py-2.5 pr-9 rounded-xl border border-zinc-200 bg-white text-zinc-900
+          aria-invalid={!!error}
+          className={`
+            w-full px-4 py-2.5 pr-9 rounded-xl border bg-white text-zinc-900
             placeholder-zinc-400 text-sm
-            focus:outline-none focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/10
+            focus:outline-none focus:ring-2
             transition-all duration-200
-          "
+            ${error
+              ? 'border-red-300 focus:border-red-500 focus:ring-red-500/10'
+              : 'border-zinc-200 focus:border-zinc-900 focus:ring-zinc-900/10'
+            }
+          `}
         />
         <ChevronDown
           className={`absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
@@ -91,7 +99,11 @@ export default function Combobox({
         </div>
       )}
 
-      {hint && <p className="mt-1 text-xs text-zinc-400">{hint}</p>}
+      {error ? (
+        <p className="mt-1 text-xs text-red-500">{error}</p>
+      ) : hint ? (
+        <p className="mt-1 text-xs text-zinc-400">{hint}</p>
+      ) : null}
     </div>
   )
 }

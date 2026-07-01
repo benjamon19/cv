@@ -7,8 +7,10 @@ interface Props {
   label: string
   value: string
   onChange: (v: string) => void
+  onBlur?: () => void
   hint?: string
   required?: boolean
+  error?: string | null
 }
 
 const DEFAULT_COUNTRY = COUNTRIES[0] // Chile
@@ -28,7 +30,7 @@ function splitLocalNumber(value: string, country: Country): string {
   return digits
 }
 
-export default function PhoneInput({ label, value, onChange, hint, required }: Props) {
+export default function PhoneInput({ label, value, onChange, onBlur, hint, required, error }: Props) {
   const [country, setCountry] = useState<Country>(() => detectCountry(value))
   const [localNumber, setLocalNumber] = useState(() => splitLocalNumber(value, detectCountry(value)))
   const [open, setOpen] = useState(false)
@@ -79,11 +81,12 @@ export default function PhoneInput({ label, value, onChange, hint, required }: P
         <button
           type="button"
           onClick={() => setOpen(o => !o)}
-          className="
-            flex items-center gap-1.5 px-3 rounded-l-xl border border-r-0 border-zinc-200
+          className={`
+            flex items-center gap-1.5 px-3 rounded-l-xl border border-r-0
             bg-zinc-50 hover:bg-zinc-100 text-sm text-zinc-700 flex-shrink-0
             transition-colors duration-150
-          "
+            ${error ? 'border-red-300' : 'border-zinc-200'}
+          `}
         >
           <FlagIcon iso2={country.iso2} />
           <span className="font-medium tabular-nums">+{country.dialCode}</span>
@@ -95,13 +98,19 @@ export default function PhoneInput({ label, value, onChange, hint, required }: P
           inputMode="tel"
           value={localNumber}
           onChange={e => handleNumberChange(e.target.value)}
+          onBlur={onBlur}
           placeholder="9 1234 5678"
-          className="
-            flex-1 min-w-0 px-4 py-2.5 rounded-r-xl border border-zinc-200 bg-white text-zinc-900
+          aria-invalid={!!error}
+          className={`
+            flex-1 min-w-0 px-4 py-2.5 rounded-r-xl border bg-white text-zinc-900
             placeholder-zinc-400 text-sm
-            focus:outline-none focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/10
+            focus:outline-none focus:ring-2
             transition-all duration-200
-          "
+            ${error
+              ? 'border-red-300 focus:border-red-500 focus:ring-red-500/10'
+              : 'border-zinc-200 focus:border-zinc-900 focus:ring-zinc-900/10'
+            }
+          `}
         />
 
         {open && (
@@ -146,7 +155,11 @@ export default function PhoneInput({ label, value, onChange, hint, required }: P
         )}
       </div>
 
-      {hint && <p className="mt-1 text-xs text-zinc-400">{hint}</p>}
+      {error ? (
+        <p className="mt-1 text-xs text-red-500">{error}</p>
+      ) : hint ? (
+        <p className="mt-1 text-xs text-zinc-400">{hint}</p>
+      ) : null}
     </div>
   )
 }

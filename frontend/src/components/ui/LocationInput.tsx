@@ -7,9 +7,11 @@ interface Props {
   label: string
   value: string
   onChange: (v: string) => void
+  onBlur?: () => void
   hint?: string
   required?: boolean
   className?: string
+  error?: string | null
 }
 
 const DEFAULT_COUNTRY = COUNTRIES[0] // Chile
@@ -36,7 +38,7 @@ function parseLocation(value: string): { country: Country | null; city: string; 
   return { country: null, city: trimmed, remote: false }
 }
 
-export default function LocationInput({ label, value, onChange, hint, required, className = '' }: Props) {
+export default function LocationInput({ label, value, onChange, onBlur, hint, required, className = '', error }: Props) {
   const initial = useMemo(() => parseLocation(value), []) // eslint-disable-line react-hooks/exhaustive-deps
   const [country, setCountry] = useState<Country | null>(initial.country)
   const [region, setRegion] = useState<ChileRegion | null>(
@@ -252,14 +254,20 @@ export default function LocationInput({ label, value, onChange, hint, required, 
             value={city}
             onChange={e => handleCityChange(e.target.value)}
             onFocus={() => setCityOpen(true)}
+            onBlur={onBlur}
             disabled={remote}
             placeholder={isChile && !region ? 'Elige una región primero' : 'Ciudad'}
-            className="
-              w-full px-4 py-2.5 rounded-xl border border-zinc-200 bg-white text-zinc-900
+            aria-invalid={!!error}
+            className={`
+              w-full px-4 py-2.5 rounded-xl border bg-white text-zinc-900
               placeholder-zinc-400 text-sm disabled:opacity-40 disabled:bg-zinc-50
-              focus:outline-none focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/10
+              focus:outline-none focus:ring-2
               transition-all duration-200
-            "
+              ${error
+                ? 'border-red-300 focus:border-red-500 focus:ring-red-500/10'
+                : 'border-zinc-200 focus:border-zinc-900 focus:ring-zinc-900/10'
+              }
+            `}
           />
           {cityOpen && !remote && filteredCities.length > 0 && (
             <div className="absolute z-50 top-full left-0 right-0 mt-1.5 bg-white border border-zinc-200 rounded-xl shadow-lg shadow-zinc-100/80 overflow-hidden max-h-48 overflow-y-auto">
@@ -292,8 +300,9 @@ export default function LocationInput({ label, value, onChange, hint, required, 
         >
           {remote ? '✓ ' : ''}🌐 Remoto
         </button>
-        {hint && <p className="text-xs text-zinc-400">{hint}</p>}
+        {hint && !error && <p className="text-xs text-zinc-400">{hint}</p>}
       </div>
+      {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
     </div>
   )
 }

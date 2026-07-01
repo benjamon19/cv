@@ -79,7 +79,7 @@ export function calculateATS(data: CVData): ATSResult {
     },
     {
       label: 'Mínimo 2 grupos de habilidades',
-      tip: 'Los ATS buscan keywords técnicas específicas. Cuantas más, mejor clasificación.',
+      tip: 'Los ATS buscan palabras clave específicas de tu área. Cuantas más, mejor clasificación.',
       passed: data.skills.length >= 2,
       weight: 12,
     },

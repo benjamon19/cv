@@ -1,5 +1,3 @@
-export type ProfileType = 'developer' | 'other'
-
 export interface PersonalData {
   name: string
   email: string
