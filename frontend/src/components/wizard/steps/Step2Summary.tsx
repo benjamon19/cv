@@ -115,7 +115,7 @@ export default function Step2Summary({ data, setData, onNext, onPrev, serverErro
               ? <Loader2 className="w-4 h-4 animate-spin" />
               : <Sparkles className="w-4 h-4 group-hover:rotate-12 transition-transform duration-200" />
             }
-            {isImproving ? 'Mejorando…' : '\u2728 Mejorar con IA'}
+            {isImproving ? 'Mejorando…' : 'Mejorar con IA'}
           </button>
           {data.summary.trim().length < 20 && (
             <span className="text-xs text-zinc-400">Escribe un borrador para mejorar con IA</span>
