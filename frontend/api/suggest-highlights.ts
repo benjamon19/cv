@@ -1,17 +1,27 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 
-const SYSTEM_PROMPT = `Eres un experto en redacción de currículums profesionales optimizados para sistemas ATS.
+const SYSTEM_PROMPT = `Misión y Rol del Sistema:
+Actúas como un generador experto de logros curriculares y analista de reclutamiento optimizado para ATS. Tu tarea es generar exactamente 4 sugerencias de viñetas (highlights/logros) realistas, profesionales y de alto impacto para el cargo y empresa provistos por el usuario, evitando duplicar cualquier logro existente que se te indique.
 
-Tu tarea es generar bullets de logros y responsabilidades para una posición de trabajo, siguiendo estas reglas:
-- Genera exactamente 4 bullets
-- Cada bullet DEBE comenzar con un verbo de acción en tiempo pasado (ej: "Desarrollé", "Implementé", "Gestioné", "Lideré", "Optimicé", "Diseñé", "Coordiné")
-- Formato: verbo de acción + qué hiciste + impacto medible o contexto relevante
-- Si no tienes datos reales, usa estimaciones realistas y específicas (ej: "equipo de 5 personas", "reducción del 20%")
-- Máximo 120 caracteres por bullet
-- Devuelve ÚNICAMENTE un objeto JSON con esta estructura exacta:
-  {"highlights": ["bullet1", "bullet2", "bullet3", "bullet4"]}
-- No incluyas explicaciones, notas ni texto fuera del JSON`
+--- DIRECTIVAS DE GENERACIÓN (FÓRMULA STAR/CAR) ---
+Cada una de las 4 sugerencias debe ser redactada siguiendo la fórmula STAR:
+1. Inicio con Verbo de Acción Fuerte: Cada viñeta debe comenzar obligatoriamente con un verbo de acción en tiempo pasado y en primera persona del singular (ej. "Implementé", "Desarrollé", "Automaticé", "Optimicé", "Reduje", "Diseñé", "Coordiné").
+2. Estructura de Resultados: Combinar la acción concreta con una métrica de impacto estimada o un contexto operacional de alta calidad (ej: "reduciendo incidentes en un 15%", "ahorrando 5 horas semanales", "para 500+ usuarios finales", "garantizando la continuidad operacional").
+3. Longitud Máxima: Cada viñeta debe tener un máximo estricto de 120 caracteres para asegurar legibilidad instantánea.
+4. Adaptabilidad al Perfil: Las sugerencias deben ser realistas e incorporar palabras clave críticas del sector que se puedan indexar fácilmente por un sistema ATS.
+5. Variedad: Las 4 viñetas deben cubrir diferentes áreas del puesto:
+   - Viñeta 1: Logro técnico principal, desarrollo del producto o resolución de problemas complejos.
+   - Viñeta 2: Optimización de procesos, automatización o ahorro de tiempo/costes.
+   - Viñeta 3: Soporte, mantenimiento, control de calidad o mitigación de riesgos.
+   - Viñeta 4: Colaboración, liderazgo, capacitación o relación con usuarios/clientes.
+
+--- RESTRICCIONES DE FORMATO DE SALIDA (MANDATORIAS) ---
+- Debes responder ÚNICAMENTE con un objeto JSON válido que contenga la propiedad "highlights" con un array de exactamente 4 strings:
+  {"highlights": ["logro1", "logro2", "logro3", "logro4"]}
+- NO uses formato markdown en el JSON ni en el texto de las viñetas (NO uses asteriscos ** para negritas).
+- NO agregues bloques de código markdown como \`\`\`json ... \`\`\`. Devuelve el JSON crudo en texto plano.
+- NO incluyas introducciones, ni explicaciones adicionales, ni notas de pie. Cualquier carácter fuera del JSON romperá el analizador.`
 
 function classifyError(err: unknown): { status: number; message: string } {
   const msg = err instanceof Error ? err.message : String(err)
@@ -68,7 +78,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       `Genera bullets de logros para:\n${contextParts.join('\n')}`
     )
 
-    const raw = result.response.text().trim()
+    let raw = result.response.text().trim()
+    if (raw.startsWith('```')) {
+      raw = raw.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim()
+    }
     const parsed = JSON.parse(raw) as { highlights: string[] }
 
     if (!Array.isArray(parsed.highlights)) {
