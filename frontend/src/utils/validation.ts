@@ -4,7 +4,8 @@
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 const PHONE_REGEX = /^\+?[\d\s\-()]{7,20}$/
-const URL_REGEX = /^(https?:\/\/)?([a-z0-9-]+\.)+[a-z]{2,}(:\d+)?(\/[^\s]*)?$/i
+const DOMAIN_SHAPE_REGEX = /^(https?:\/\/)?([a-z0-9-]+\.)+[a-z]{2,}(:\d+)?(\/[^\s]*)?$/i
+const PROFILE_FIELD_REGEX = /^\w[\w.~:/?#[\]@!$&'()*+,;=%-]*$/
 const DATE_REGEX = /^\d{4}-(0[1-9]|1[0-2])$/
 
 export function validateRequired(value: string, label: string): string | null {
@@ -21,6 +22,9 @@ export function validateEmail(value: string): string | null {
 export function validatePhone(value: string): string | null {
   const v = value.trim()
   if (!v) return 'El teléfono es obligatorio.'
+  if (!v.startsWith('+')) {
+    return 'El número de teléfono no es válido. Debe incluir el código de país, por ejemplo: +56 9 1234 5678'
+  }
   const digits = v.replace(/\D/g, '')
   if (digits.length < 7) return 'El teléfono debe tener al menos 7 dígitos.'
   if (!PHONE_REGEX.test(v)) return 'Formato inválido. Usa solo dígitos y +, -, (, ).'
@@ -30,7 +34,21 @@ export function validatePhone(value: string): string | null {
 export function validateUrl(value: string, label: string): string | null {
   const v = value.trim()
   if (!v) return null // campo opcional
-  if (!URL_REGEX.test(v)) return `${label} no parece una URL válida.`
+  if (!PROFILE_FIELD_REGEX.test(v)) {
+    return `${label} no tiene un formato válido. Ingresá una URL sin espacios ni caracteres especiales.`
+  }
+  if (!DOMAIN_SHAPE_REGEX.test(v)) {
+    return `${label} no parece una URL válida.`
+  }
+  return null
+}
+
+export function validateProfileField(value: string, label: string): string | null {
+  const v = value.trim()
+  if (!v) return null // campo opcional
+  if (!PROFILE_FIELD_REGEX.test(v)) {
+    return `${label} no tiene un formato válido. Ingresá una URL o nombre de usuario sin espacios ni caracteres especiales.`
+  }
   return null
 }
 

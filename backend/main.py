@@ -9,6 +9,7 @@ import logging
 import os
 import re
 import subprocess
+import sys
 import tempfile
 from datetime import date as Date
 from typing import Annotated, Literal
@@ -19,6 +20,8 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
+import unicodedata
+import urllib.parse
 from pydantic import (
     BaseModel,
     EmailStr,
@@ -27,6 +30,7 @@ from pydantic import (
     TypeAdapter,
     ValidationInfo,
     field_validator,
+    model_validator,
 )
 from pydantic import ValidationError as PydanticValidationError
 
@@ -35,6 +39,23 @@ logger = logging.getLogger("cv_backend")
 # ────────────────────────────────────────────────────────────────────────────────
 # Shared validation helpers
 # ────────────────────────────────────────────────────────────────────────────────
+
+_CONTROL_CHARS_RE = re.compile(r"[\x00-\x1f\x7f]")
+
+
+def _sanitize_text(v: str) -> str:
+    return unicodedata.normalize("NFC", _CONTROL_CHARS_RE.sub("", v)).strip()
+
+
+def _sanitize_payload(data):
+    if isinstance(data, dict):
+        return {k: _sanitize_payload(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [_sanitize_payload(item) for item in data]
+    elif isinstance(data, str):
+        return _sanitize_text(data)
+    return data
+
 
 # Nombre de usuario o URL de perfil "razonable": empieza con una letra/dígito
 # (incluye letras con tilde, ñ, etc.) y no tiene espacios ni caracteres de
@@ -131,12 +152,17 @@ class PersonalData(BaseModel):
     def validate_required_text(cls, v: str, info: ValidationInfo) -> str:
         return _require_non_empty(v, info)
 
+    @field_validator("name")
+    @classmethod
+    def clean_name_escapes(cls, v: str) -> str:
+        return v.replace("\\", "").replace('"', "")
+
     @field_validator("phone")
     @classmethod
     def validate_phone(cls, v: str) -> str:
         phone_str = v.strip()
         try:
-            parsed = phonenumbers.parse(phone_str, "CL")
+            parsed = phonenumbers.parse(phone_str, None)
             if not phonenumbers.is_valid_number(parsed):
                 raise ValueError("El número de teléfono no es válido.")
         except Exception:
@@ -243,8 +269,8 @@ class Education(BaseModel):
 
 
 class SkillGroup(BaseModel):
-    label: str
-    details: str
+    label: str = Field(max_length=100)
+    details: str = Field(max_length=500)
 
     @field_validator("label", "details")
     @classmethod
@@ -254,10 +280,10 @@ class SkillGroup(BaseModel):
 
 class Project(BaseModel):
     id: str
-    name: str
-    url: str = ""
-    date: str = ""
-    highlights: list[HighlightStr] = Field(default_factory=list)
+    name: str = Field(max_length=200)
+    url: str = Field(default="", max_length=300)
+    date: str = Field(default="", max_length=30)
+    highlights: list[HighlightStr] = Field(default_factory=list, max_length=30)
 
     @field_validator("name")
     @classmethod
@@ -267,10 +293,10 @@ class Project(BaseModel):
 
 class Certification(BaseModel):
     id: str
-    name: str
-    institution: str = ""
-    date: str = ""
-    url: str = ""
+    name: str = Field(max_length=200)
+    institution: str = Field(default="", max_length=200)
+    date: str = Field(default="", max_length=30)
+    url: str = Field(default="", max_length=300)
 
     @field_validator("name")
     @classmethod
@@ -280,12 +306,12 @@ class Certification(BaseModel):
 
 class VolunteerEntry(BaseModel):
     id: str
-    organization: str
-    position: str = ""
-    startDate: str = ""
-    endDate: str = ""
+    organization: str = Field(max_length=200)
+    position: str = Field(default="", max_length=200)
+    startDate: str = Field(default="", max_length=30)
+    endDate: str = Field(default="", max_length=30)
     current: bool = False
-    highlights: list[HighlightStr] = Field(default_factory=list)
+    highlights: list[HighlightStr] = Field(default_factory=list, max_length=30)
 
     @field_validator("organization")
     @classmethod
@@ -295,11 +321,11 @@ class VolunteerEntry(BaseModel):
 
 class PublicationEntry(BaseModel):
     id: str
-    title: str
-    authors: str = ""
-    date: str = ""
-    journal: str = ""
-    url: str = ""
+    title: str = Field(max_length=200)
+    authors: str = Field(default="", max_length=200)
+    date: str = Field(default="", max_length=30)
+    journal: str = Field(default="", max_length=200)
+    url: str = Field(default="", max_length=300)
 
     @field_validator("title")
     @classmethod
@@ -314,15 +340,20 @@ class TemplateSelection(BaseModel):
 
 class CVRequest(BaseModel):
     personal: PersonalData
-    summary: str
-    experience: list[Experience]
-    education: list[Education]
-    projects: list[Project] = Field(default_factory=list)
-    certifications: list[Certification] = Field(default_factory=list)
-    volunteer: list[VolunteerEntry] = Field(default_factory=list)
-    publications: list[PublicationEntry] = Field(default_factory=list)
-    skills: list[SkillGroup]
+    summary: str = Field(max_length=4000)
+    experience: list[Experience] = Field(max_length=40)
+    education: list[Education] = Field(max_length=40)
+    projects: list[Project] = Field(default_factory=list, max_length=40)
+    certifications: list[Certification] = Field(default_factory=list, max_length=40)
+    volunteer: list[VolunteerEntry] = Field(default_factory=list, max_length=40)
+    publications: list[PublicationEntry] = Field(default_factory=list, max_length=40)
+    skills: list[SkillGroup] = Field(max_length=40)
     template: TemplateSelection
+
+    @model_validator(mode="before")
+    @classmethod
+    def sanitize_input(cls, data):
+        return _sanitize_payload(data)
 
 
 # ────────────────────────────────────────────────────────────────────────────────
@@ -428,9 +459,14 @@ async def handle_unexpected_error(request: Request, exc: Exception) -> JSONRespo
 
 def _strip_username(url: str, domain: str) -> str:
     """Extract username from a profile URL or return as-is if already a username."""
-    if domain in url:
-        return url.split(domain)[-1].strip("/").split("?")[0]
-    return url.strip("/")
+    unquoted = urllib.parse.unquote(url)
+    cleaned = unquoted.split("?")[0].split("#")[0]
+    if domain in cleaned:
+        username = cleaned.split(domain)[-1]
+    else:
+        username = cleaned
+    username = username.strip().lstrip("@").rstrip("/")
+    return _sanitize_text(username)
 
 
 def build_rendercv_yaml(cv: CVRequest) -> dict:
@@ -583,6 +619,15 @@ def build_rendercv_yaml(cv: CVRequest) -> dict:
     return {
         "cv": cv_block,
         "design": {"theme": cv.template.theme},
+        "settings": {
+            "render_command": {
+                "typst_path": "OUTPUT_FOLDER/cv.typ",
+                "pdf_path": "OUTPUT_FOLDER/cv.pdf",
+                "markdown_path": "OUTPUT_FOLDER/cv.md",
+                "html_path": "OUTPUT_FOLDER/cv.html",
+                "png_path": "OUTPUT_FOLDER/cv.png",
+            }
+        },
     }
 
 
@@ -596,12 +641,6 @@ def health():
 
 
 _BOX_DRAWING_CHARS = "─━│┃┌┐└┘├┤┬┴┼╭╮╰╯═║╔╗╚╝╠╣╦╩╬"
-_RENDERCV_VALIDATION_MARKERS = ("validation error", "is not a valid", "there are validation errors")
-
-
-def _looks_like_rendercv_validation_error(output: str) -> bool:
-    lowered = output.lower()
-    return any(marker in lowered for marker in _RENDERCV_VALIDATION_MARKERS)
 
 
 def _simplify_rendercv_output(output: str) -> str:
@@ -625,16 +664,23 @@ def _simplify_rendercv_output(output: str) -> str:
 async def generate_cv(cv: CVRequest):
     with tempfile.TemporaryDirectory() as tmpdir:
         # 1. Write YAML
-        yaml_path = os.path.join(tmpdir, "cv.yaml")
-        cv_data = build_rendercv_yaml(cv)
+        try:
+            yaml_path = os.path.join(tmpdir, "cv.yaml")
+            cv_data = build_rendercv_yaml(cv)
 
-        with open(yaml_path, "w", encoding="utf-8") as f:
-            yaml.dump(cv_data, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+            with open(yaml_path, "w", encoding="utf-8") as f:
+                yaml.dump(cv_data, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+        except Exception:
+            logger.exception("Error al construir o escribir el archivo YAML.")
+            raise HTTPException(
+                status_code=422,
+                detail="No pudimos generar el CV con los datos ingresados. Revisá que no haya caracteres extraños e intentá de nuevo.",
+            )
 
         # 2. Run RenderCV
         try:
             result = subprocess.run(
-                ["rendercv", "render", yaml_path, "--output-folder", "output"],
+                [sys.executable, "-m", "rendercv", "render", yaml_path, "--output-folder", "output"],
                 capture_output=True,
                 text=True,
                 cwd=tmpdir,
@@ -651,18 +697,9 @@ async def generate_cv(cv: CVRequest):
             combined_output = f"{result.stdout}\n{result.stderr}".strip()
             logger.error("RenderCV terminó con código %s:\n%s", result.returncode, combined_output)
 
-            if _looks_like_rendercv_validation_error(combined_output):
-                # A pesar de la validación de Pydantic, RenderCV rechazó los datos:
-                # tratamos esto como un problema de los datos del usuario (422), no
-                # como un error de servidor.
-                raise HTTPException(
-                    status_code=422,
-                    detail=_simplify_rendercv_output(combined_output),
-                )
-
             raise HTTPException(
-                status_code=500,
-                detail="No se pudo generar el CV debido a un error interno del servidor.",
+                status_code=422,
+                detail=_simplify_rendercv_output(combined_output),
             )
 
         # 3. Locate generated PDF
@@ -674,15 +711,13 @@ async def generate_cv(cv: CVRequest):
                 detail="No se pudo generar el CV: no se creó la carpeta de salida.",
             )
 
-        pdf_files = [f for f in os.listdir(output_dir) if f.endswith(".pdf")]
-        if not pdf_files:
-            logger.error("RenderCV no produjo ningún PDF en %s", output_dir)
+        pdf_path = os.path.join(output_dir, "cv.pdf")
+        if not os.path.isfile(pdf_path):
+            logger.error("RenderCV no produjo ningún PDF en %s", pdf_path)
             raise HTTPException(
                 status_code=500,
                 detail="No se pudo generar el CV: no se produjo ningún archivo PDF.",
             )
-
-        pdf_path = os.path.join(output_dir, pdf_files[0])
 
         # 4a. PNG output — convert PDF → image
         if cv.template.format == "png":
@@ -718,6 +753,12 @@ async def generate_cv(cv: CVRequest):
                 raise HTTPException(
                     status_code=500,
                     detail="No se pudo generar el PNG: falta una dependencia del servidor.",
+                )
+            except Exception:
+                logger.exception("Error al convertir PDF a PNG.")
+                raise HTTPException(
+                    status_code=422,
+                    detail="No pudimos generar la imagen PNG del CV. Probá con el formato PDF o intentá de nuevo.",
                 )
 
         # 4b. PDF output — stream directly

@@ -4,7 +4,7 @@ import type { ServerErrorMap } from '../../../utils/serverErrors'
 import PhoneInput from '../../ui/PhoneInput'
 import LocationInput from '../../ui/LocationInput'
 import NavigationButtons from '../NavigationButtons'
-import { validateRequired, validateEmail, validatePhone, validateUrl } from '../../../utils/validation'
+import { validateRequired, validateEmail, validatePhone, validateUrl, validateProfileField } from '../../../utils/validation'
 
 interface Props {
   data: CVData
@@ -84,8 +84,8 @@ export default function Step1Personal({ data, setData, onNext, sector, serverErr
     phone: validatePhone(p.phone),
     location: validateRequired(p.location, 'La ubicación'),
     website: validateUrl(p.website, 'El sitio web'),
-    linkedin: validateUrl(p.linkedin, 'El enlace de LinkedIn'),
-    github: showGithub ? validateUrl(p.github, 'El enlace de GitHub') : null,
+    linkedin: validateProfileField(p.linkedin, 'El enlace de LinkedIn'),
+    github: showGithub ? validateProfileField(p.github, 'El enlace de GitHub') : null,
   }), [p, showGithub])
 
   // Local validation takes precedence; server errors show immediately (no touch needed)

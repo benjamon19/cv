@@ -103,10 +103,25 @@ export default function App() {
     const timeoutId = setTimeout(() => controller.abort(), GENERATE_TIMEOUT_MS)
 
     try {
+      const trimmedPersonal = {
+        ...data.personal,
+        name: data.personal.name.trim(),
+        email: data.personal.email.trim(),
+        phone: data.personal.phone.trim(),
+        location: data.personal.location.trim(),
+        website: data.personal.website.trim(),
+        linkedin: data.personal.linkedin.trim(),
+        github: data.personal.github.trim(),
+      }
+      const payload = {
+        ...data,
+        personal: trimmedPersonal,
+      }
+
       const response = await fetch(import.meta.env.VITE_API_URL + '/generate-cv', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
         signal: controller.signal,
       })
 
