@@ -46,26 +46,40 @@ export default function App() {
     })
   }
 
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('theme')
-      if (saved === 'light' || saved === 'dark') return saved
-      if (window.matchMedia('(prefers-color-scheme: dark)').matches) return 'dark'
+      if (saved === 'light' || saved === 'dark' || saved === 'system') return saved
     }
-    return 'light'
+    return 'system'
   })
 
   useEffect(() => {
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark')
-      localStorage.setItem('theme', 'dark')
-    } else {
-      document.documentElement.classList.remove('dark')
-      localStorage.setItem('theme', 'light')
+    const root = document.documentElement
+
+    const applyTheme = () => {
+      const activeTheme = theme === 'system'
+        ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+        : theme
+
+      if (activeTheme === 'dark') {
+        root.classList.add('dark')
+      } else {
+        root.classList.remove('dark')
+      }
+    }
+
+    applyTheme()
+    localStorage.setItem('theme', theme)
+
+    if (theme === 'system') {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+      const listener = () => applyTheme()
+      mediaQuery.addEventListener('change', listener)
+      return () => mediaQuery.removeEventListener('change', listener)
     }
   }, [theme])
 
-  const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light')
 
   useEffect(() => {
     window.scrollTo(0, 0)
@@ -194,11 +208,11 @@ export default function App() {
   }
 
   if (!sector) {
-    return <SectorIntro onSelect={setSector} theme={theme} onToggleTheme={toggleTheme} />
+    return <SectorIntro onSelect={setSector} theme={theme} onChangeTheme={setTheme} />
   }
 
   return (
-    <WizardLayout step={step} steps={STEPS} theme={theme} onToggleTheme={toggleTheme}>
+    <WizardLayout step={step} steps={STEPS} theme={theme} onChangeTheme={setTheme}>
       {/* Error banner */}
       {error && (
         <div className="mx-8 mt-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">

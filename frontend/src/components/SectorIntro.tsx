@@ -1,17 +1,17 @@
 import { useRef } from 'react'
 import {
   Code2, Stethoscope, HardHat, Pickaxe, ChefHat,
-  ShoppingBag, Briefcase, GraduationCap, Sparkles,
-  Sun, Moon
+  ShoppingBag, Briefcase, GraduationCap, Sparkles
 } from 'lucide-react'
 import { useGSAP } from '@gsap/react'
 import { gsap } from 'gsap'
 import type { Sector } from '../types/cv'
+import ThemeSelector from './ThemeSelector'
 
 interface Props {
   onSelect: (sector: Sector) => void
-  theme: 'light' | 'dark'
-  onToggleTheme: () => void
+  theme: 'light' | 'dark' | 'system'
+  onChangeTheme: (theme: 'light' | 'dark' | 'system') => void
 }
 
 const SECTORS: { id: Sector; label: string; icon: typeof Code2 }[] = [
@@ -26,7 +26,7 @@ const SECTORS: { id: Sector; label: string; icon: typeof Code2 }[] = [
   { id: 'otro', label: 'Otro rubro', icon: Sparkles },
 ]
 
-export default function SectorIntro({ onSelect, theme, onToggleTheme }: Props) {
+export default function SectorIntro({ onSelect, theme, onChangeTheme }: Props) {
   const scopeRef = useRef<HTMLDivElement>(null)
 
   useGSAP(() => {
@@ -45,19 +45,7 @@ export default function SectorIntro({ onSelect, theme, onToggleTheme }: Props) {
   return (
     <div ref={scopeRef} className="min-h-screen bg-white dark:bg-zinc-950 flex items-center justify-center px-4 py-10 relative transition-colors duration-200">
       <div className="absolute top-4 right-4 sm:top-6 sm:right-6">
-        <button
-          onClick={onToggleTheme}
-          type="button"
-          className="
-            p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800
-            bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400
-            hover:bg-zinc-50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-100
-            transition-colors duration-150
-          "
-          aria-label="Cambiar tema"
-        >
-          {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-        </button>
+          <ThemeSelector theme={theme} onChangeTheme={onChangeTheme} />
       </div>
 
       <div className="w-full max-w-2xl text-center pt-12 sm:pt-0 px-12 sm:px-0">

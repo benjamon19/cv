@@ -1,19 +1,19 @@
 import type { ReactNode } from 'react'
 import { useRef } from 'react'
-import { Sun, Moon } from 'lucide-react'
 import { useGSAP } from '@gsap/react'
 import { gsap } from 'gsap'
 import StepIndicator from './StepIndicator'
+import ThemeSelector from '../ThemeSelector'
 
 interface Props {
   step: number
   steps: string[]
   children: ReactNode
-  theme: 'light' | 'dark'
-  onToggleTheme: () => void
+  theme: 'light' | 'dark' | 'system'
+  onChangeTheme: (theme: 'light' | 'dark' | 'system') => void
 }
 
-export default function WizardLayout({ step, steps, children, theme, onToggleTheme }: Props) {
+export default function WizardLayout({ step, steps, children, theme, onChangeTheme }: Props) {
   const progress = Math.round(((step + 1) / steps.length) * 100)
   const barRef = useRef<HTMLDivElement>(null)
 
@@ -44,19 +44,7 @@ export default function WizardLayout({ step, steps, children, theme, onToggleThe
 
         {/* Theme Toggle Button */}
         <div className="flex justify-end w-10 sm:w-16">
-          <button
-            onClick={onToggleTheme}
-            type="button"
-            className="
-              p-2 rounded-xl border border-zinc-200 dark:border-zinc-800
-              bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400
-              hover:bg-zinc-50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-100
-              transition-colors duration-150
-            "
-            aria-label="Cambiar tema"
-          >
-            {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-          </button>
+          <ThemeSelector theme={theme} onChangeTheme={onChangeTheme} />
         </div>
       </header>
 
