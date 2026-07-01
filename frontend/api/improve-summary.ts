@@ -9,6 +9,7 @@ Redactar un resumen profesional pulido, dinámico y optimizado para búsquedas p
 
 --- REGLAS DE ESTRUCTURA Y COMPOSICIÓN ---
 El resumen profesional generado debe estar estructurado en exactamente 3 a 4 oraciones concisas y fluidas, con una longitud total estricta de entre 300 y 500 caracteres de texto plano. No debe haber saltos de línea ni viñetas.
+LÍMITE MÁXIMO ABSOLUTO: La respuesta NUNCA debe superar los 550 caracteres en total. Si te excedes de 600 caracteres el sistema fallará, por lo que debes ser altamente conciso y preciso.
 
 Oración 1: La Declaración de Identidad y Propuesta de Valor Core
 - Fórmula: [Título profesional/especialidad] + [Años de experiencia/Especialización sectorial] + [Impacto principal que ofrece].
@@ -80,7 +81,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const result = await model.generateContent(
       `Mejora el siguiente resumen profesional:\n\n${draft.trim()}`
     )
-    const text = result.response.text().trim()
+    let text = result.response.text().trim()
+
+    // Límite de seguridad estricto de 600 caracteres
+    if (text.length > 600) {
+      const cut = text.slice(0, 600)
+      const lastDot = cut.lastIndexOf('.')
+      if (lastDot > 100) {
+        text = cut.slice(0, lastDot + 1)
+      } else {
+        text = cut
+      }
+    }
 
     return res.status(200).json({ result: text })
   } catch (err) {
