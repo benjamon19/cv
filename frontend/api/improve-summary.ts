@@ -45,7 +45,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       systemInstruction: SYSTEM_PROMPT,
       generationConfig: {
         temperature: 0.4,
-        maxOutputTokens: 300,
+        maxOutputTokens: 2048,
       },
     })
 
