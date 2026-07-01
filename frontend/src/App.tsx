@@ -74,6 +74,10 @@ export default function App() {
 
   const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light')
 
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [step, sector])
+
   const goNext = () => {
     setDirection(1)
     setStep(s => Math.min(s + 1, STEPS.length - 1))
